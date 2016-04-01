@@ -31,10 +31,10 @@
 
 // DEVCFG3
 #pragma config USERID = 0 // some 16bit userid, doesn't matter what
-#pragma config PMDL1WAY = x // allow multiple reconfigurations
-#pragma config IOL1WAY = x // allow multiple reconfigurations
-#pragma config FUSBIDIO = x // USB pins controlled by USB module
-#pragma config FVBUSONIO = x // USB BUSON controlled by USB module
+#pragma config PMDL1WAY = OFF // allow multiple reconfigurations
+#pragma config IOL1WAY = OFF // allow multiple reconfigurations
+#pragma config FUSBIDIO = ON // USB pins controlled by USB module
+#pragma config FVBUSONIO = ON // USB BUSON controlled by USB module
 
 
 int main() {
