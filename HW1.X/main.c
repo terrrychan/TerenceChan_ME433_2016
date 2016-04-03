@@ -11,7 +11,7 @@
 
 // DEVCFG1
 #pragma config FNOSC = PRIPLL // use primary oscillator with pll
-#pragma config FSOSCEN = oFF // turn off secondary oscillator
+#pragma config FSOSCEN = OFF // turn off secondary oscillator
 #pragma config IESO = OFF // no switching clocks
 #pragma config POSCMOD = OFF // high speed crystal mode
 #pragma config OSCIOFNC = ON // free up secondary osc pins
@@ -30,9 +30,9 @@
 #pragma config UPLLEN = ON // USB clock on
 
 // DEVCFG3
-#pragma config USERID = 0 // some 16bit userid, doesn't matter what
+#pragma config USERID = 0x1000 // some 16bit userid, doesn't matter what
 #pragma config PMDL1WAY = OFF // allow multiple reconfigurations
-#pragma config IOL1WAY = OFF // allow multiple reconfigurations
+#pragma config IOL1WAY=  OFF // allow multiple reconfigurations
 #pragma config FUSBIDIO = ON // USB pins controlled by USB module
 #pragma config FVBUSONIO = ON // USB BUSON controlled by USB module
 
@@ -54,7 +54,16 @@ int main() {
     DDPCONbits.JTAGEN = 0;
     
     // do your TRIS and LAT commands here
+    // TRIS is to set input output
+    // LAT is to write to the bit
+    // Set pushbutton (B4) as input, 
+    TRISBbits.TRISB4 = 1;
     
+    // Set LED(A4) as output ON
+    RPA4Rbits.RPA4R = 0b0101; // use OC4
+    TRISAbits.TRISA4 = 0;
+    LATBbits.LATB4 = 1;
+       
     __builtin_enable_interrupts();
     
     while(1) {
