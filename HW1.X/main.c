@@ -54,22 +54,30 @@ int main() {
     DDPCONbits.JTAGEN = 0;
     
     // do your TRIS and LAT commands here
-    // TRIS is to set input output
-    // LAT is to write to the bit
+    // remember: TRIS = set I/O, LAT = write to bit 
     // Set pushbutton (B4) as input, 
-    TRISBbits.TRISB4 = 1;
+    TRISBbits.TRISB4 = 1; 
     
     // Set LED(A4) as output ON
-    RPA4Rbits.RPA4R = 0b0101; // use OC4
     TRISAbits.TRISA4 = 0;
-    LATBbits.LATB4 = 1;
+    LATAbits.LATA4 = 1;
        
     __builtin_enable_interrupts();
     
     while(1) {
 	    // use _CP0_SET_COUNT(0) and _CP0_GET_COUNT() to test the PIC timing
 		// remember the core timer runs at half the CPU speed
+        // since CPU runs at 48 MHz, core timer runs at 24 MHz 
+        
+        _CP0_SET_COUNT(0); // core timer = 0, runs at half CPU speed
+        while (_CP0_GET_COUNT() < 2000){;} // 2000 counts = 0.5 ms
+
+        
+        while (PORTBbits.RB4 == 0){;} // when low, input = 0 since switch tied to ground 
+            // do nothing until switch released 
+        
+        LATAbits.LATA4 = !LATAbits.LATA4;
+//      LATAINV = 0x10;
     }
-    
-    
+    return 0;
 }
