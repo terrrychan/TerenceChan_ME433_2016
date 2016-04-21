@@ -66,41 +66,33 @@ int main() {
 //    TRISAbits.TRISA0 = 0;
 //    LATAbits.LATA0 = 0;
     
+    // initialize counter + main variables
     int plot_counter = 0;
     int i;
-        // use the sine function in math.h 
     double sine_wave[200];
     double tri_wave[200];
-    // sinceDAC updating 1000 times a second and 10 Hz sine wave --- 100 points per period
+    
+    // since DAC updating 1000 times a second and 10 Hz sine wave --- 100 points per period
     for (i = 0; i < 200; i++){
+        // use the sine function in math.h 
+        // 200 iterations - two full sine periods, one triangle period
         // amplitude = 255/2, shifted up so max = 255 (3.3V) and min = 0 (0V))
-        sine_wave[i] = (255.0/2.0)*sin((i/99.0)*2*PI) + (255.0/2.0); // 
+        sine_wave[i] = (255.0/2.0)*sin((i/99.0)*2*PI) + (255.0/2.0); 
         tri_wave[i] = 255.0*(i/199.0);
     }
     
     while(1) {
+        
         _CP0_SET_COUNT(0); // core timer = 0, runs at half CPU speed
         while (_CP0_GET_COUNT() < 24000){;} // do nothing 
-        setVoltage(0,((unsigned char) sine_wave[plot_counter]));
-        setVoltage(1,((unsigned char) tri_wave[plot_counter]));
+            setVoltage(0,((unsigned char) sine_wave[plot_counter]));
+            setVoltage(1,((unsigned char) tri_wave[plot_counter]));
         if (plot_counter == 199){
             plot_counter = 0;
         }
         else{ 
             plot_counter++;
         }
-//        
-//	      // use _CP0_SET_COUNT(0) and _CP0_GET_COUNT() to test the PIC timing
-//		    // remember the core timer runs at half the CPU speed
-//        // since CPU runs at 48 MHz, core timer runs at 24 MHz 
-//        _CP0_SET_COUNT(0); // core timer = 0, runs at half CPU speed
-//        
-//        while (_CP0_GET_COUNT() < 12000){;} // 2000 counts = 0.5 ms        
-//        while (PORTBbits.RB4 == 0){;} // When low, input = 0 since switch tied to ground 
-//        LATAbits.LATA4 = !LATAbits.LATA4;
-////        LATBbits.LATB7 = !LATBbits.LATB7;
-//    }
-//    return 0;
     }
 }
 
@@ -149,22 +141,12 @@ void setVoltage(unsigned char channel, unsigned char voltage){
     }
     
     send_command |= temp_command;
-//    short send_command = 0b1111011111110000;
+//    short send_command = 0b1111011111110000; // test command -- should be half of 3.3V
     
     CS = 0;   // SS must be 0 -- SPI becomes the slave
     spi_io((send_command & 0xFF00) >> 8); // spi_io only takes char 8 bits, send the configuration bits first
     spi_io((send_command & 0x00FF));      // send the least significant byte
     CS = 1;   // raise the chip select line, ending communication
-//    short to_send = 0b0000000000000000;     // initialize short to be sent via spi_io
-//    to_send |= voltage << 4;        // left shift the voltage data bits by 4
-//    to_send |= (0b111 << 12);       // left shift the initialization data bits (BUF, GA, SHDN) by 12
-//    to_send |= (channel << 15);     // left shift the channel select bit all the way (by 15)
-//    
-//    CS = 0;                         // select the SPI chip as slave
-//    spi_io(to_send >> 8);           // send the first 8 bits to SDI (spi_io takes char which has 8 bits)
-//    spi_io(to_send);                // send the remaining 8 bits to SDI   
-//    CS = 1;                         // finish the command
-//    
 }
 
 void PIC32_init(void){
@@ -177,3 +159,17 @@ void PIC32_init(void){
     // disable JTAG to get pins back
     DDPCONbits.JTAGEN = 0;
 }
+
+/////////////////////////////////// HOMEWORK 1 ////////////////////////////////
+//        
+//	      // use _CP0_SET_COUNT(0) and _CP0_GET_COUNT() to test the PIC timing
+//		    // remember the core timer runs at half the CPU speed
+//        // since CPU runs at 48 MHz, core timer runs at 24 MHz 
+//        _CP0_SET_COUNT(0); // core timer = 0, runs at half CPU speed
+//        
+//        while (_CP0_GET_COUNT() < 12000){;} // 2000 counts = 0.5 ms        
+//        while (PORTBbits.RB4 == 0){;} // When low, input = 0 since switch tied to ground 
+//        LATAbits.LATA4 = !LATAbits.LATA4;
+////        LATBbits.LATB7 = !LATBbits.LATB7;
+//    }
+//    return 0;
