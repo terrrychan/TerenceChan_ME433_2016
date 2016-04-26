@@ -121,7 +121,7 @@ int main() {
             values = 0x00;
         }
         else{
-            setExpander(0x00,1);
+            setExpander(0x01,0);
         }
     }
 }
