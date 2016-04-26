@@ -1,17 +1,18 @@
 #include<xc.h>           // processor SFR definitions
 #include<sys/attribs.h>  // __ISR macro
 #include <stdio.h>
-#include <math.h>
+#include <math.h> // used in HW4
 #define CS LATBbits.LATB7   // chip select pin
-#define PI 3.14159265
-// addresses used for IMU 
-#define WHO_AM_I 0x0F 
-#define IMU_ADDR 0b11010110
-#define IMU_7bit 0b1101011
-#define CTRL1_XL 0x10 // turn on accelerometer 
-#define CTRL2_G 0x11 // turn on gyroscope 
+#define PI 3.14159265 // used in HW4
+
+// addresses used for IMU
+#define WHO_AM_I 0x0F
+#define IMU_ADDR 0b11010110 // full 8 bit address, has pull up resistors
+#define IMU_7bit 0b1101011 // 7 bit address - shift over for 1/0 r/w
+#define CTRL1_XL 0x10 // turn on accelerometer
+#define CTRL2_G 0x11 // turn on gyroscope
 #define CTRL3_C 0x12 // turn on IF_INC --- enable multiple read
-#define OUT_TEMP_L 0x20 // call this for multiple read 
+#define OUT_TEMP_L 0x20 // call this for multiple read
 
 // DEVCFG0
 #pragma config DEBUG = OFF // no debugging
@@ -48,7 +49,7 @@
 #pragma config FUSBIDIO = ON // USB pins controlled by USB module
 #pragma config FVBUSONIO = ON // USB BUSON controlled by USB module
 
-// function prototypes
+////////////////////////// function prototypes /////////////////////////////////
 void PIC32_init(void);
 
 // i2c functions
@@ -59,15 +60,15 @@ unsigned char i2c_master_recv(void);
 void i2c_master_ack(int val);
 void i2c_master_stop(void);
 void i2c_master_setup(void);
-void setExpander(unsigned char pin, char level);
-//unsigned char getExpander(void);
 
+// IMU functions
 void imu_setup(void);
 unsigned char I2C_read_single(void);
 void I2C_read_multiple(char, char, unsigned char *, char);
 void bit_shift(void);
 void OC_setup(void);
 
+// initialize variables
 unsigned char outputs[14]; // length 14 b/c 14 registers to read from linearly
 signed short temp = 0;
 signed short g_x = 0, g_y = 0, g_z = 0;
@@ -81,7 +82,7 @@ int main() {
     i2c_master_setup();
     imu_setup();
     OC_setup();
-    
+
     __builtin_enable_interrupts();
 
     // // for debugging - make sure code is working
@@ -90,18 +91,17 @@ int main() {
      TRISAbits.TRISA4 = 0; // Set green LED(A4) as output ON
      LATAbits.LATA4 = 0;
 
-    // initialize counter + main variables
-    unsigned char values; 
+    // unsigned char values; // store value returned from who_am_i register, unused
 
     while(1) {
 
-    
+
         _CP0_SET_COUNT(0); // core timer = 0, runs at half CPU speed
-        while (_CP0_GET_COUNT() < 480000){;} // read at 50 Hz -- 480k / 24 MHz  
-        
-        values = I2C_read_single();
-        I2C_read_multiple(IMU_7bit, OUT_TEMP_L, outputs, 14);
-        // data is read from OUT_TEMP_L, moving "upward"
+        while (_CP0_GET_COUNT() < 480000){;} // read at 50 Hz -- 480k / 24 MHz
+
+        // values = I2C_read_single(); // read from who_am_i register
+        I2C_read_multiple(IMU_7bit, OUT_TEMP_L, outputs, 14); // multiple reads
+        // data is read from OUT_TEMP_L, moving "upward" -- 14 registers total
         temp = (outputs[0] | (outputs[1] << 8));
         g_x = (outputs[2] | (outputs[3] << 8));
         g_y = (outputs[4] | (outputs[5] << 8));
@@ -109,16 +109,22 @@ int main() {
         xl_x = (outputs[8] | (outputs[9] << 8));
         xl_y = (outputs[10] | (outputs[11] << 8));
         xl_z = (outputs[14] | (outputs[13] << 8));
-//        if (values == 0b01101001){ // who am i register working!! 
+
+//        if (values == 0b01101001){ // who am i register working!!
 //            LATAbits.LATA4 = 1;
 //        }
 //        else {
 //            LATAbits.LATA4 = 0;
 //        }
-        // max of short = 65535
+
+        ///// TODO: Check so max out at 100% duty cycle? ////
+
+        // max of short = 65535 --- make sure to scale up to +/- 1g
+        // xl scale = +/- 2g, multiply by 2
+        // 32k based on 50% duty cycle for 0 acceleration
         float OC1_val = (6000.0/65535.0)*(2.0*xl_x + 32767.0);
         float OC2_val = (6000.0/65535.0)*(2.0*xl_y + 32767.0);
-        OC1RS = (int) OC1_val;
+        OC1RS = (int) OC1_val; // typecast since OC1RS should be an int
         OC2RS = (int) OC2_val;
     }
 }
@@ -147,35 +153,6 @@ void i2c_master_setup(void) {
     // I2C2 are analog inputs by default --- turn them off
     ANSELBbits.ANSB2 = 0;
     ANSELBbits.ANSB3 = 0;
-}
-
-void imu_setup(void){
-    
-    // accelerometer set up 
-    //  Set the sample rate to 1.66 kHz, 2g sensitivity, x filter.
-    unsigned char xl_setup = 0b10000000;  
-    i2c_master_start();
-    i2c_master_send(IMU_ADDR);
-    i2c_master_send(CTRL1_XL);
-    i2c_master_send(xl_setup);
-    i2c_master_stop();
-    
-    // gyroscope set up 
-    // ample rate to 1.66 kHz, 245 dps sensitivity, x filter.
-    unsigned char g_setup = 0b10000000;
-    i2c_master_start();
-    i2c_master_send(IMU_ADDR);
-    i2c_master_send(CTRL2_G);
-    i2c_master_send(g_setup);
-    
-    // multiple read set up 
-    // if_inc bit must be 1 to enable 
-    unsigned char read_setup = 0b00000100;
-    i2c_master_start();
-    i2c_master_send(IMU_ADDR);
-    i2c_master_send(CTRL3_C);
-    i2c_master_send(read_setup);
-    i2c_master_stop();
 }
 
 // Start a transmission on the I2C bus
@@ -215,10 +192,40 @@ void i2c_master_stop(void) {          // send a STOP:
   while(I2C2CONbits.PEN) { ; }        // wait for STOP to complete
 }
 
+//////////////////////////////// IMU ///////////////////////////////////////////
+void imu_setup(void){
+    // accelerometer set up
+    //  Set the sample rate to 1.66 kHz, 2g sensitivity, x filter.
+    unsigned char xl_setup = 0b10000000;
+    i2c_master_start();
+    i2c_master_send(IMU_ADDR);
+    i2c_master_send(CTRL1_XL);
+    i2c_master_send(xl_setup);
+    i2c_master_stop();
+
+    // gyroscope set up
+    // ample rate to 1.66 kHz, 245 dps sensitivity, x filter.
+    unsigned char g_setup = 0b10000000;
+    i2c_master_start();
+    i2c_master_send(IMU_ADDR);
+    i2c_master_send(CTRL2_G);
+    i2c_master_send(g_setup);
+
+    // multiple read set up
+    // if_inc bit must be 1 to enable
+    unsigned char read_setup = 0b00000100;
+    i2c_master_start();
+    i2c_master_send(IMU_ADDR);
+    i2c_master_send(CTRL3_C);
+    i2c_master_send(read_setup);
+    i2c_master_stop();
+}
+
+// currently written to read from the who_am_i register
 unsigned char I2C_read_single(void){
     i2c_master_start();
     i2c_master_send(IMU_ADDR);
-    i2c_master_send(WHO_AM_I); // read from the GPIO register to get logic
+    i2c_master_send(WHO_AM_I); // read from the who_am_i register to get logic
     i2c_master_restart();
     i2c_master_send(0b11010111); // send the read command, 1 lsb means read
     unsigned char r = i2c_master_recv();
@@ -233,15 +240,14 @@ void I2C_read_multiple(char address, char reg, unsigned char * data, char length
     i2c_master_send(reg); // this should be out_temp_L
     i2c_master_restart();
     i2c_master_send((address<< 1)| 0x01); // put a 1 in lsb = read
-    
+
     int i;
     for (i = 0; i < length; i++){ // go through the 14 registers, starting at out_temp_l
-        outputs[i] = i2c_master_recv(); 
+        outputs[i] = i2c_master_recv();
         if((i+1) == length){ // statement should be true for last iteration
             i2c_master_ack(1); // or NACK = 1 (no more bytes requested from slave)
-
         }
-        else{
+        else{ // every iteration but last
             i2c_master_ack(0); // sends ACK = 0 (slave should send another byte)
         }
     }
@@ -254,12 +260,12 @@ void OC_setup(void){ // working!! , B15 looks a little noisy though
     ANSELBbits.ANSB15 = 0;
     RPB15Rbits.RPB15R = 0b0101; // OC1
     RPB8Rbits.RPB8R = 0b0101; // OC2
-    
+
     // standard oc skeleton code
     // set duty cycle initially to be 50%
     T2CONbits.TCKPS = 0b011;        // timer prescaler N = 8
     PR2 = 5999;                     // (PR2+1)N/48MHz --- value must be between 1k and 10k
-    TMR2 = 0;                       // set timer2 to 0                    
+    TMR2 = 0;                       // set timer2 to 0
     T2CONbits.ON = 1;               // turn on timer2
 
     // B15 = OC1
@@ -268,8 +274,8 @@ void OC_setup(void){ // working!! , B15 looks a little noisy though
     OC1RS = 3000;                   // duty cycle = OC1RS/(PR2+1) = 50%
     OC1R = 3000;                    // OC1R for just in case it rolls over
     OC1CONbits.ON = 1;              // turn on OC1
-    
-    // B13 = OC2 
+
+    // B13 = OC2
     OC2CONbits.OCTSEL = 0;          // set OC2 to use timer2
     OC2CONbits.OCM = 0b110;         // PWM mode without fault pin; other OC1CON bits are defaults
     OC2RS = 3000;                   // duty cycle = OC1RS/(PR2+1) = 50%
@@ -289,17 +295,3 @@ void OC_setup(void){ // working!! , B15 looks a little noisy though
 //    i2c_master_stop();
 //    return r;
 //}
-
-/////////////////////////////////// HOMEWORK 1 ////////////////////////////////
-//
-//	      // use _CP0_SET_COUNT(0) and _CP0_GET_COUNT() to test the PIC timing
-//		    // remember the core timer runs at half the CPU speed
-//        // since CPU runs at 48 MHz, core timer runs at 24 MHz
-//        _CP0_SET_COUNT(0); // core timer = 0, runs at half CPU speed
-//
-//        while (_CP0_GET_COUNT() < 12000){;} // 2000 counts = 0.5 ms
-//        while (PORTBbits.RB4 == 0){;} // When low, input = 0 since switch tied to ground
-//        LATAbits.LATA4 = !LATAbits.LATA4;
-////        LATBbits.LATB7 = !LATBbits.LATB7;
-//    }
-//    return 0;
