@@ -70,7 +70,32 @@ void SPI1_init(void);
 void LCD_drawChar(unsigned char, unsigned char, unsigned char);
 void LCD_drawStr(unsigned char, unsigned char, unsigned char *, int);
 
-// LCD function prototypes included in the header file 
+// LCD function prototypes included in the header file
+
+void i2c_master_start(void);
+void i2c_master_restart(void);
+void i2c_master_send(unsigned char byte);
+unsigned char i2c_master_recv(void);
+void i2c_master_ack(int val);
+void i2c_master_stop(void);
+void i2c_master_setup(void);
+
+// IMU functions
+void imu_setup(void);
+unsigned char I2C_read_single(void);
+void I2C_read_multiple(char, char, unsigned char *, char);
+void bit_shift(void);
+void OC_setup(void);
+
+// initialize variables
+unsigned char outputs[14]; // length 14 b/c 14 registers to read from linearly
+signed short temp = 0;
+signed short g_x = 0, g_y = 0, g_z = 0;
+signed short xl_x = 0, xl_y = 0, xl_z = 0;
+
+unsigned char write_string[100];
+
+
 int main() {
 
     __builtin_disable_interrupts();
@@ -78,28 +103,162 @@ int main() {
     PIC32_init();
     SPI1_init();
     LCD_init();
+    i2c_master_setup();
+    imu_setup();
     LCD_clearScreen(BLACK);
         
     __builtin_enable_interrupts();
     
 //    LCD_drawChar(10,10,'H');
-    unsigned char write_string[100];
-    unsigned char x_start = 28; 
-    unsigned char y_start = 32;
 
-    // Print out "Hello World 1337" where 1337 is an int variable
+//    // Part A of HW 5
+//    // Print out "Hello World 1337" where 1337 is an int variable
+//    unsigned char x_start = 28; 
+//    unsigned char y_start = 32;
     int write_var = 1337;
     int total_char = sprintf(write_string, "Hello World %d", write_var);
-    LCD_drawStr(x_start,y_start,write_string,total_char);
-    
+//    LCD_drawStr(x_start,y_start,write_string,total_char);
+
 //    // print out the number of characters on screen 
 //    int test_char = sprintf(test_string, "%d",total_char);
 //    unsigned char test_string[100];
 //    LCD_drawStr(0,100,test_string,test_char);
 
-    while(1) {
-
+    while(1){
+        
+        _CP0_SET_COUNT(0); // core timer = 0, runs at half CPU speed
+        // read slower than 50 Hz to read on LCD
+        while (_CP0_GET_COUNT() < 960000){;} // read at 25 Hz -- 960k / 24 MHz
+        
+        // values = I2C_read_single(); // read from who_am_i register
+        I2C_read_multiple(IMU_7bit, OUT_TEMP_L, outputs, 14); // multiple reads
+        // data is read from OUT_TEMP_L, moving "upward" -- 14 registers total
+        temp = (outputs[0] | (outputs[1] << 8));
+        g_x = (outputs[2] | (outputs[3] << 8));
+        g_y = (outputs[4] | (outputs[5] << 8));
+        g_z = (outputs[6] | (outputs[7] << 8));
+        xl_x = (outputs[8] | (outputs[9] << 8));
+        xl_y = (outputs[10] | (outputs[11] << 8));
+        xl_z = (outputs[14] | (outputs[13] << 8));
+        
+        // print the x values of accelerometer onto LCD 
+        int total_char = sprintf(write_string, "Accel in x: %5.3f g", (float)(xl_x * 2.0 /32767));
+        LCD_drawStr(0, 0,write_string,total_char);    
+        
     }
+}
+
+/////////////////////////////////// I2C ///////////////////////////////////////
+void i2c_master_setup(void) {
+    // maximum baud = 400 kHz
+    // use 100 kHz for now, use 400 kHz later
+    // Fsck = 100 kHz, PGD = 104 ns (the typical value, on page 269), Pblck = 48 MHz
+    I2C2BRG = 233;            // I2CBRG = [1/(2*Fsck) - PGD]*Pblck - 2
+                                    // look up PGD for your PIC32
+    I2C2CONbits.ON = 1;               // turn on the I2C2 module
+
+    // I2C2 are analog inputs by default --- turn them off
+    ANSELBbits.ANSB2 = 0;
+    ANSELBbits.ANSB3 = 0;
+}
+
+// Start a transmission on the I2C bus
+void i2c_master_start(void) {
+    I2C2CONbits.SEN = 1;            // send the start bit
+    while(I2C2CONbits.SEN) { ; }    // wait for the start bit to be sent
+}
+
+void i2c_master_restart(void) {
+    I2C2CONbits.RSEN = 1;           // send a restart
+    while(I2C2CONbits.RSEN) { ; }   // wait for the restart to clear
+}
+
+void i2c_master_send(unsigned char byte) { // send a byte to slave
+  I2C2TRN = byte;                   // if an address, bit 0 = 0 for write, 1 for read
+  while(I2C2STATbits.TRSTAT) { ; }  // wait for the transmission to finish
+  if(I2C2STATbits.ACKSTAT) {        // if this is high, slave has not acknowledged
+    // ("I2C2 Master: failed to receive ACK\r\n");
+  }
+}
+
+unsigned char i2c_master_recv(void) { // receive a byte from the slave
+    I2C2CONbits.RCEN = 1;             // start receiving data
+    while(!I2C2STATbits.RBF) { ; }    // wait to receive the data
+    return I2C2RCV;                   // read and return the data
+}
+
+void i2c_master_ack(int val) {        // sends ACK = 0 (slave should send another byte)
+                                      // or NACK = 1 (no more bytes requested from slave)
+    I2C2CONbits.ACKDT = val;          // store ACK/NACK in ACKDT
+    I2C2CONbits.ACKEN = 1;            // send ACKDT
+    while(I2C2CONbits.ACKEN) { ; }    // wait for ACK/NACK to be sent
+}
+
+void i2c_master_stop(void) {          // send a STOP:
+  I2C2CONbits.PEN = 1;                // comm is complete and master relinquishes bus
+  while(I2C2CONbits.PEN) { ; }        // wait for STOP to complete
+}
+
+//////////////////////////////// IMU ///////////////////////////////////////////
+void imu_setup(void){
+    // accelerometer set up
+    //  Set the sample rate to 1.66 kHz, 2g sensitivity, x filter.
+    unsigned char xl_setup = 0b10000000;
+    i2c_master_start();
+    i2c_master_send(IMU_ADDR);
+    i2c_master_send(CTRL1_XL);
+    i2c_master_send(xl_setup);
+    i2c_master_stop();
+
+    // gyroscope set up
+    // ample rate to 1.66 kHz, 245 dps sensitivity, x filter.
+    unsigned char g_setup = 0b10000000;
+    i2c_master_start();
+    i2c_master_send(IMU_ADDR);
+    i2c_master_send(CTRL2_G);
+    i2c_master_send(g_setup);
+
+    // multiple read set up
+    // if_inc bit must be 1 to enable
+    unsigned char read_setup = 0b00000100;
+    i2c_master_start();
+    i2c_master_send(IMU_ADDR);
+    i2c_master_send(CTRL3_C);
+    i2c_master_send(read_setup);
+    i2c_master_stop();
+}
+
+// currently written to read from the who_am_i register
+unsigned char I2C_read_single(void){
+    i2c_master_start();
+    i2c_master_send(IMU_ADDR);
+    i2c_master_send(WHO_AM_I); // read from the who_am_i register to get logic
+    i2c_master_restart();
+    i2c_master_send(0b11010111); // send the read command, 1 lsb means read
+    unsigned char r = i2c_master_recv();
+    i2c_master_ack(1);
+    i2c_master_stop();
+    return r;
+}
+
+void I2C_read_multiple(char address, char reg, unsigned char * data, char length){
+    i2c_master_start();
+    i2c_master_send((address << 1)); // shift address 1 -- 0 in lsb = write
+    i2c_master_send(reg); // this should be out_temp_L
+    i2c_master_restart();
+    i2c_master_send((address<< 1)| 0x01); // put a 1 in lsb = read
+
+    int i;
+    for (i = 0; i < length; i++){ // go through the 14 registers, starting at out_temp_l
+        outputs[i] = i2c_master_recv();
+        if((i+1) == length){ // statement should be true for last iteration
+            i2c_master_ack(1); // or NACK = 1 (no more bytes requested from slave)
+        }
+        else{ // every iteration but last
+            i2c_master_ack(0); // sends ACK = 0 (slave should send another byte)
+        }
+    }
+    i2c_master_stop();
 }
 
 // takes character array to write to the LCD screen 
