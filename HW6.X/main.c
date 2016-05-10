@@ -65,7 +65,6 @@ void i2c_master_setup(void);
 void imu_setup(void);
 unsigned char I2C_read_single(void);
 void I2C_read_multiple(char, char, unsigned char *, char);
-void bit_shift(void);
 void OC_setup(void);
 
 // initialize variables
