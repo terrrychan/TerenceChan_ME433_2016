@@ -341,13 +341,13 @@ void APP_Initialize ( void )
     See prototype in app.h.
  */
 
-void APP_Tasks ( void )
+void APP_Tasks ( short var1, short var2) // move based on just xl_x and xl_y for now 
 {
     static int8_t   vector = 0;
     static uint8_t  movement_length = 0;
     static bool     sent_dont_move = false;
 
-    int8_t dir_table[] ={-4,-4,-4, 0, 4, 4, 4, 0};
+//    int8_t dir_table[] ={-4,-4,-4, 0, 4, 4, 4, 0};
     
     /* Check the application's current state. */
     switch ( appData.state )
@@ -400,17 +400,22 @@ void APP_Tasks ( void )
                 appData.emulateMouse ^= 1;
                 appData.isSwitchPressed = false;
             }
-
+            
+            appData.emulateMouse = 1; // make sure it runs into this loop 
+            
             if(appData.emulateMouse)
             {
                 sent_dont_move = false;
 
-                if(movement_length > 50)
+//                if(movement_length > 50)
+                if(movement_length > 10)
                 {
                     appData.mouseButton[0] = MOUSE_BUTTON_STATE_RELEASED;
                     appData.mouseButton[1] = MOUSE_BUTTON_STATE_RELEASED;
-                    appData.xCoordinate =(int8_t)dir_table[vector & 0x07];
-                    appData.yCoordinate =(int8_t)dir_table[(vector+2) & 0x07];
+//                    appData.xCoordinate =(int8_t)dir_table[vector & 0x07];
+//                    appData.yCoordinate =(int8_t)dir_table[(vector+2) & 0x07];
+                    appData.xCoordinate = (int8_t)(var1/1000);
+                    appData.yCoordinate = (int8_t)(var2/1000); // value represents sensitivity
                     vector ++;
                     movement_length = 0;
                 }

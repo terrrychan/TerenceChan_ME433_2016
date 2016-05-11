@@ -69,7 +69,7 @@ SUBSTITUTE GOODS, TECHNOLOGY, SERVICES, OR ANY CLAIMS BY THIRD PARTIES
     See prototype in system/common/sys_module.h.
 */
 
-void SYS_Tasks ( void )
+void SYS_Tasks ( short var1, short var2 )
 {
     /* Maintain system services */
     SYS_DEVCON_Tasks(sysObj.sysDevcon);
@@ -87,7 +87,7 @@ void SYS_Tasks ( void )
  
 
     /* Maintain the application's state machine. */
-    APP_Tasks();
+    APP_Tasks(var1, var2);
 }
 
 
