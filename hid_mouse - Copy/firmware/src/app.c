@@ -408,14 +408,15 @@ void APP_Tasks ( short var1, short var2) // move based on just xl_x and xl_y for
                 sent_dont_move = false;
 
 //                if(movement_length > 50)
-                if(movement_length > 10)
+                if(movement_length > 10) // decrease the movement length so less delay
                 {
                     appData.mouseButton[0] = MOUSE_BUTTON_STATE_RELEASED;
                     appData.mouseButton[1] = MOUSE_BUTTON_STATE_RELEASED;
 //                    appData.xCoordinate =(int8_t)dir_table[vector & 0x07];
 //                    appData.yCoordinate =(int8_t)dir_table[(vector+2) & 0x07];
-                    appData.xCoordinate = (int8_t)(var1/1000);
-                    appData.yCoordinate = (int8_t)(var2/1000); // value represents sensitivity
+                    // swapped var2 and var1 so that y on gyro = horizontal on screen
+                    appData.xCoordinate = (int8_t)(var2/1000);
+                    appData.yCoordinate = (int8_t)(-var1/1000); // value represents sensitivity
                     vector ++;
                     movement_length = 0;
                 }

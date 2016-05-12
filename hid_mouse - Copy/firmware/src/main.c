@@ -124,6 +124,7 @@ int main ( void )
     imu_setup();
     SPI1_init();
     LCD_init();
+    LCD_clearScreen(WHITE);
 
     __builtin_enable_interrupts();
     
@@ -137,9 +138,8 @@ int main ( void )
     {
         /* Maintain state machines of all polled MPLAB Harmony modules. */
         // APP_Tasks within SYS Tasks is where the mouse movement takes place
-        // Place the IMU readings and conversions in APP_Tasks
-        // Move mouse according to IMU
-        // Turn APP_Tasks to take inputs?
+        // send app tasks the IMU readings 
+        // app tasks changes coordinates accordingly
         
         _CP0_SET_COUNT(0); // core timer = 0, runs at half CPU speed
         while (_CP0_GET_COUNT() < 240000){;} // read at 50 Hz -- 480k / 24 MHz
