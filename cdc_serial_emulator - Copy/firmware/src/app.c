@@ -457,21 +457,39 @@ void APP_Tasks ( void )
                 break;
             }
 
-
             /* Check if a character was received on the UART */
-            if (appData.readBuffer[0] == 'a')
+            if (appData.readBuffer[0] == 'a') // correctly receiving the data! 
             {
-                if(DRV_USART_Read(appData.usartHandle, appData.uartReceivedData, 1) > 0)
-                {
-                    /* We have received data on the UART */
-                    
-                    USB_DEVICE_CDC_Write(0, &appData.writeTransferHandle,
-                            appData.uartReceivedData, 3,
-                            USB_DEVICE_CDC_TRANSFER_FLAGS_DATA_COMPLETE);
-                    appData.uartReceivedData[0] = 'h';
-                    appData.uartReceivedData[1] = 'i';
-                    appData.uartReceivedData[2] = '\n';
-                }
+                TRISAbits.TRISA4 = 0; // Set green LED(A4) as output ON
+                LATAbits.LATA4 = 1;
+                
+                /* We have received data on the UART */
+                
+                appData.uartReceivedData[0] = '2';
+                appData.uartReceivedData[1] = '3';
+                appData.uartReceivedData[2] = '\r'; // carriage return 
+                appData.uartReceivedData[3] = '\n'; // new line! 
+
+                USB_DEVICE_CDC_Write(0, &appData.writeTransferHandle,
+                        appData.uartReceivedData, 4,
+                        USB_DEVICE_CDC_TRANSFER_FLAGS_DATA_COMPLETE);
+                
+                appData.readBuffer[0] = '0'; // use this as a reset! 
+                
+                // use the readBuffer condition as the main trigger
+//                if(DRV_USART_Read(appData.usartHandle, appData.uartReceivedData, 1) > 0)
+//                {
+//                    LATAbits.LATA4 = 0;
+//                    /* We have received data on the UART */
+//                    appData.uartReceivedData[0] = 'h';
+//                    appData.uartReceivedData[1] = 'i';
+//                    appData.uartReceivedData[2] = '\n';
+//                    
+//                    USB_DEVICE_CDC_Write(0, &appData.writeTransferHandle,
+//                            appData.uartReceivedData, 3,
+//                            USB_DEVICE_CDC_TRANSFER_FLAGS_DATA_COMPLETE);
+//
+//                }
             }
 
             appData.state = APP_STATE_CHECK_CDC_READ;
