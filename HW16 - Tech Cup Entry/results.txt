@@ -1,0 +1,25 @@
+Name: Terence Chan
+Date: 6/6/2016
+
+************************** Notes on Robot **************************************
+
+My robot used two sliders to individually control two different thresholds.
+My algorithm would search 50 pixels, starting at 330 and 400 and then compute
+the COM based on the respective thresholds. I chose to look at the R channel
+primarily because it seemed consistent when testing in the lab; the RGB summation
+algorithm posted on git seemed to capture more noise so I decided to go with
+the R channel. Also, I chose to find the average COM for the each block of
+50 pixels (resulting in COM1 and COM2) and then sent the average of these values
+to the PIC. This was so that the COM gives a more general direction the robot
+should head; it was important to search the lower pixels because it was more
+accurate with less noise and also gave a more immediate direction.
+
+With the average COM, the PIC checked if it was less than 320 or more than 320.
+This is so that for values less than 320, the right wheel would spin faster
+and for values greater than 320, the left wheel would spin faster. For COM of 320,
+the wheels would be set to 100% duty cycle.
+
+Improvements to the robot could be 3D printing an actual chassis for the wheels,
+connecting them together to make sure they are spinning at the same angle
+and will not bend due to the friction from the mat. Additionally, downsizing the
+robot / reducing the weight would likely help with the speed and stability of the robot
