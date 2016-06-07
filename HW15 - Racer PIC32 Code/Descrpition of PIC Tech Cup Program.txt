@@ -1,0 +1,8 @@
+************************** Describing the PIC32 Racer Code *********************
+The two PWM output compares as well as the PHASE digital IO are defined in the
+app initialization.
+
+The PWM duty cycle is changed in the APP_STATE_CHECK_CDC_READ after the values
+sent from the phone are read to the PIC. I sent the average COM to the PIC,
+so the PIC interprets the average COM and changes the PWM (specifically the
+OC1RS and OC2RS) accordingly.
